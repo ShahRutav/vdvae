@@ -23,6 +23,7 @@ from data import mkdir_p
 from vae import VAE
 from torchvision.datasets import ImageFolder
 import torchvision
+import json
 #from train_helpers import set_up_hyperparams, load_vaes, load_opt, accumulate_stats, save_model, update_ema
 
 def set_up_data(H):
@@ -136,21 +137,50 @@ def save_model_txt(model, path):
         fout.write(str(v.tolist()) + '\n')
     fout.close()
 
+def save_model_json(model, path):
+    from collections import OrderedDict
+    actual_dict = OrderedDict()
+    for k, v in model.state_dict().items():
+      actual_dict[k] = v.tolist()
+    with open(path, 'w') as f:
+      json.dump(actual_dict, f)
+
+def load_model_json(model, path):
+  from collections import OrderedDict
+  data_dict = OrderedDict()
+  with open(path, 'r') as f:
+    data_dict = json.load(f)    
+  own_state = model.state_dict()
+  print("Loading model...")
+  for k, v in data_dict.items():
+    #print('Loading parameter:', k)
+    if not k in own_state:
+      print('Parameter', k, 'not found in own_state!!!')
+    if type(v) == list or type(v) == int:
+      v = torch.tensor(v)
+    own_state[k].copy_(v)
+  model.load_state_dict(own_state)
+  print('Model loaded')
 
 def restore_params(model, path, local_rank, mpi_size, map_ddp=True, map_cpu=False):
+    load_model_json(model, path)
+    #### ORIGINAL CODE
     #state_dict = torch.load(distributed_maybe_download(path, local_rank, mpi_size), map_location='cpu' if map_cpu else None)
-    state_dict = torch.load(path, map_location='cpu' if map_cpu else None)
-    if map_ddp:
-        new_state_dict = {}
-        l = len('module.')
-        for k in state_dict:
-            if k.startswith('module.'):
-                new_state_dict[k[l:]] = state_dict[k]
-            else:
-                new_state_dict[k] = state_dict[k]
-        state_dict = new_state_dict
-    model.load_state_dict(state_dict, strict=False)
-    save_model_txt(model, 'encoder_wts.txt')
+    #state_dict = torch.load(path, map_location='cpu' if map_cpu else None)
+    #if map_ddp:
+    #    new_state_dict = {}
+    #    l = len('module.')
+    #    for k in state_dict:
+    #        if k.startswith('module.'):
+    #            new_state_dict[k[l:]] = state_dict[k]
+    #        else:
+    #            new_state_dict[k] = state_dict[k]
+    #    state_dict = new_state_dict
+    #model.load_state_dict(state_dict, strict=False)
+
+    #### SAVING MODEL
+    #save_model_txt(model, 'encoder_wts.txt')
+    #save_model_json(model, 'encoder_wts.json')
 
 def load_vaes(H):
     vae = None
