@@ -17,7 +17,7 @@ from utils import (logger,
                    mpi_size,
                    maybe_download,
                    mpi_rank)
-from mpi4py import MPI
+#from mpi4py import MPI
 import torch.distributed as dist
 from data import mkdir_p
 from vae import VAE
@@ -129,6 +129,14 @@ def setup_mpi(H):
     torch.cuda.set_device(H.local_rank)
     dist.init_process_group(backend='nccl', init_method=f"env://")
 
+def save_model_txt(model, path):
+    fout = open(path, 'w')
+    for k, v in model.state_dict().items():
+        fout.write(str(k) + '\n')
+        fout.write(str(v.tolist()) + '\n')
+    fout.close()
+
+
 def restore_params(model, path, local_rank, mpi_size, map_ddp=True, map_cpu=False):
     #state_dict = torch.load(distributed_maybe_download(path, local_rank, mpi_size), map_location='cpu' if map_cpu else None)
     state_dict = torch.load(path, map_location='cpu' if map_cpu else None)
@@ -141,7 +149,8 @@ def restore_params(model, path, local_rank, mpi_size, map_ddp=True, map_cpu=Fals
             else:
                 new_state_dict[k] = state_dict[k]
         state_dict = new_state_dict
-    model.load_state_dict(state_dict)
+    model.load_state_dict(state_dict, strict=False)
+    save_model_txt(model, 'encoder_wts.txt')
 
 def load_vaes(H):
     vae = None
@@ -204,7 +213,7 @@ def eval_step(data_input, target, ema_vae):
 
 def main() : 
     trans = torchvision.transforms.Compose([torchvision.transforms.ToTensor()])
-    image_path = "/home/bt1/18CS10050/dataset/ImageNet/train/train/1174393.png"
+    image_path = "/home/rutav/latentRL/vdvae/imagenet.png"
     from PIL import Image
     im = Image.open(image_path)
     im = trans(im).unsqueeze(dim=0)
