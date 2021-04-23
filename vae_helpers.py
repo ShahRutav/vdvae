@@ -16,6 +16,7 @@ def draw_gaussian_diag_samples(mu, logsigma):
 
 
 def get_conv(in_dim, out_dim, kernel_size, stride, padding, zero_bias=True, zero_weights=False, groups=1, scaled=False):
+    #print("Convolution dimensions : ", in_dim, out_dim)
     c = nn.Conv2d(in_dim, out_dim, kernel_size, stride, padding, groups=groups)
     if zero_bias:
         c.bias.data *= 0.0

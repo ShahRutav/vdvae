@@ -67,6 +67,7 @@ def get_width_settings(width, s):
 class Encoder(HModule):
     def build(self):
         H = self.H
+        #print("Image channles : ", H.image_channels)
         self.in_conv = get_3x3(H.image_channels, H.width)
         self.widths = get_width_settings(H.width, H.custom_width_str)
         enc_blocks = []
@@ -196,6 +197,7 @@ class Decoder(HModule):
             xs, block_stats = block(xs, activations, get_latents=get_latents)
             stats.append(block_stats)
         xs[self.H.image_size] = self.final_fn(xs[self.H.image_size])
+        print("Decoder forward : ", self.H.image_size)
         return xs[self.H.image_size], stats
 
     def forward_uncond(self, n, t=None, y=None):
@@ -224,13 +226,22 @@ class Decoder(HModule):
 class VAE(HModule):
     def build(self):
         self.encoder = Encoder(self.H)
-        self.decoder = Decoder(self.H)
+        #self.decoder = Decoder(self.H)
 
     def forward(self, x, x_target):
         activations = self.encoder.forward(x)
+        print("Activation 64: ", activations[64].shape)
+        print("Activation 32: ", activations[32].shape)
+        print("Activation 16: ", activations[16].shape)
+        print("Activation 8: ", activations[8].shape)
+        print("Activation 4: ", activations[4].shape)
+        print("Activation 1: ", activations[1].shape)
         px_z, stats = self.decoder.forward(activations)
+        print("Return : ", px_z.shape)
         distortion_per_pixel = self.decoder.out_net.nll(px_z, x_target)
         rate_per_pixel = torch.zeros_like(distortion_per_pixel)
+        #print("Rate per pixel : ", rate_per_pixel.shape)
+        #print("After passing through DmolNet : ", self.decoder.out_net(px_z).shape)
         ndims = np.prod(x.shape[1:])
         for statdict in stats:
             rate_per_pixel += statdict['kl'].sum(dim=(1, 2, 3))
@@ -250,3 +261,7 @@ class VAE(HModule):
     def forward_samples_set_latents(self, n_batch, latents, t=None):
         px_z = self.decoder.forward_manual_latents(n_batch, latents, t=t)
         return self.decoder.out_net.sample(px_z)
+
+    def get_latent_features(self, x):
+        activations = self.encoder.forward(x)
+        return activations[1].squeeze()

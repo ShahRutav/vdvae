@@ -79,6 +79,7 @@ def setup_mpi(H):
 
 
 def distributed_maybe_download(path, local_rank, mpi_size):
+    print("Inside distributed download ", path)
     if not path.startswith('gs://'):
         return path
     filename = path[5:].replace('/', '-')
